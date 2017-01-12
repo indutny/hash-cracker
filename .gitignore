@@ -1,4 +1,6 @@
 /client
-/client.dSYM
+/brute
+*.dSYM
+
 node_modules/
 npm-debug.log

@@ -11,8 +11,8 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#define THREAD_COUNT 128
-#define ITERATION_COUNT 200
+#define THREAD_COUNT 1
+#define ITERATION_COUNT 1
 
 static int port;
 static const char* req;
@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
   req = argv[3];
 
   memset(&addr, 0, sizeof(addr));
-  if (inet_pton(AF_INET, argv[2], &addr) != 1) {
+  if (inet_pton(AF_INET, argv[2], &addr.sin_addr) != 1) {
     fprintf(stderr, "failed to parse addr \"%s\"\n", host);
     return -1;
   }

@@ -1,2 +1,12 @@
+CFLAGS ?=
+CFLAGS += -Os -g3 -Wall -Wextra
+
+all: client brute
+
 client: client.c
-	$(CC) -O0 -g3 -Wall -Wextra $< -o $@ -lpthread
+	$(CC) $(CFLAGS) $< -o $@ -lpthread
+
+brute: brute.c
+	$(CC) $(CFLAGS) $< -o $@ -lpthread
+
+.PHONY: all

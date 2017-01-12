@@ -2,13 +2,14 @@
 
 const async = require('async');
 const spawn = require('child_process').spawn;
+const net = require('net');
 
 function measure(req, callback) {
   const p = spawn('./client', [
     '8000', '127.0.0.1',
     req
   ], {
-    stdio: [ null, 'pipe', null ]
+    stdio: [ null, 'pipe', 'inherit' ]
   });
 
   let all = '';
@@ -33,130 +34,71 @@ function hash(str, seed) {
   for (let i = 0; i < str.length; i++) {
     hash = (hash + str.charCodeAt(i)) | 0;
     hash = (hash + (hash << 10)) | 0;
-    hash ^= hash >> 6;
+    hash ^= hash >>> 6;
   }
 
   hash = (hash + (hash << 3)) | 0;
-  hash ^= (hash >> 11);
+  hash ^= (hash >>> 11);
   hash = (hash + (hash << 15)) | 0;
 
-  return hash >>> 0;
-}
-
-const POPULATION_COUNT = 64;
-const SURVIVOR_COUNT = 16;
-const NEWBORN_COUNT = 8;
-const KEY_COUNT = 2;
-const KEY_SIZE = 1;
-
-let top = { keys: [], time: 0 };
-
-function merge(a, b) {
-  const res = { keys: new Array(KEY_COUNT), time: 0 };
-  for (let i = 0; i < res.keys.length; i++)
-    res.keys[i] = Math.random() < 0.5 ? a.keys[i] : b.keys[i];
-
-  return res;
+  return (hash >>> 0) & 0x3fffffff;
 }
 
 const ALPHABET =
-    '!#$%&\'*+-.^_`|~0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    '!#$%&\'*+-.^_`|~abcdefghijklmnopqrstuvwxyz'.split('');
+const TARGET_KEYS = [];
 
-let first = false;
-
-function generate() {
-  const keys = [];
-
-  while (keys.length < KEY_COUNT) {
-    let key = '';
-    let t = (Math.random() * 0xffffffff) >>> 0;
-    for (let j = 0; j < KEY_SIZE; j++) {
-      key += ALPHABET[t % ALPHABET.length];
-      t = (t / ALPHABET.length) | 0;
-    }
-    if (first && (hash(key, 1) & 255) !== 1)
-      continue;
-
-    keys.push(key);
-  }
-
-  first = false;
-
-  return { keys: keys, time: 0 };
+for (let i = 100; i < 118; i++) {
+  TARGET_KEYS.push('x' + i);
 }
 
-function mutate(population) {
-  population.sort((a, b) => b.time - a.time);
-
-  population = population.slice(0, SURVIVOR_COUNT);
-  for (let i = 0; i < NEWBORN_COUNT; i++)
-    population.push(generate());
-  while (population.length < POPULATION_COUNT) {
-    let i = (Math.random() * SURVIVOR_COUNT) | 0;
-    let j;
-    do
-      j = (Math.random() * SURVIVOR_COUNT) | 0;
-    while (i == j);
-
-    population.push(merge(population[i], population[j]));
+function key(i) {
+  let r = '';
+  let t = i;
+  while (r.length < 3) {
+    r += ALPHABET[t % ALPHABET.length];
+    t = (t / ALPHABET.length) | 0;
   }
-  return population;
-}
-
-function getHeader(ent) {
-  let r = 'GET / HTTP/1.1\r\n';
-  for (let i = 0; i < ent.keys.length; i++)
-    r += `${ent.keys[i]}:.\r\n`;
-  r += '\r\n';
   return r;
 }
 
-function epoch(population, callback) {
-  async.forEachSeries(population, (ent, callback) => {
-    measure(getHeader(ent), (err, avg) => {
-      process.stdout.write('.');
-      if (err || isNaN(avg))
-        return callback(null);
+function getKeys(seed) {
+  let a = 0;
+  let b = 0;
+  let c = 0;
 
-      ent.time = avg;
+  let t = seed;
+  for (let i = 0; i < 10; i++) {
+    a |= (t & 1) << i;
+    t >>>= 1;
+    b |= (t & 1) << i;
+    t >>>= 1;
+    c |= (t & 1) << i;
+    t >>>= 1;
+  }
 
-      if (top.time < avg) {
-        top.time = avg;
-        top.keys = ent.keys;
-      }
+  if (seed % 100000 === 0) {
+    console.log(seed, a, b, c);
+    console.log(process.memoryUsage());
+  }
 
-      callback(null);
-    });
-  }, (err) => {
-    population = mutate(population);
-    top.time = (top.time + population[0].time) / 2;
-    console.log('\nepoch end, global best %d, local best %d',
-                top.time, population[0].time);
-    printCollisions();
-    callback(null, population);
+  return [
+    '1' + key(c),
+    '2' + key(b),
+    '3' + key(a)
+  ];
+}
+
+function probe(seed) {
+  const keys = getKeys(seed);
+
+  const headers = {};
+  for (let i = 0; i < keys.length; i++)
+    headers[keys[i]] = null;
+
+  process.nextTick(() => {
+    probe(seed + 1);
   });
 }
 
-let population = [];
-for (let i = 0; i < POPULATION_COUNT; i++) {
-  population.push(generate());
-}
-
-let total = 0;
-
-function printCollisions() {
-  let check = new Map();
-  let coll = 0;
-  for (let i = 0; i < top.keys.length; i++) {
-    const idx = hash(top.keys[i], 1) & 15;
-    if (check.has(idx))
-      coll++;
-    else
-      check.set(idx, true);
-  }
-  console.log('Actual collisions %d', coll);
-}
-
-epoch(population, function done(err, population) {
-  epoch(population, done);
-});
+probe(0);
