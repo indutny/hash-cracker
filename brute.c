@@ -4,13 +4,14 @@
 #include <stdint.h>
 
 const char* keys[] = {"+!!!","$!!!","&!!!","b!!!","|!!!","'!!!","%!!!","!!!!","*!!!","-!!!","`!!!",".!!!","a!!!","#!!!","^!!!","_!!!","~!!!"};
-const char* probes[] = {"sy!!","o|!!","fr#!","xb#!","n^%!","'t$!","mn&!","ec&!","ye'!","b~'!","fl*!","``*!","ut+!","fe-!","+a.!",".*.!","qz^!","l%^!",".d_!","d'`!","&d|!","$h`!",".c~!","p$~!","hka!","hz~!","_&c!","jpb!","'zc!","|ld!","*%e!","gfe!","j_f!","l*f!","vog!","ukg!","gfh!","%vh!","umi!","ibj!","b!l!","aqk!","zkl!","^.m!","vgm!","|lm!","`vn!","h|o!","-#p!","'!q!","*fq!","&^r!","pcr!","oqr!","+dt!","f$t!","zuu!","bzu!","^*w!","d-v!","&ix!","gsw!","$gy!","*oy!","ekz!","nxz!","m^!#","er!#","%^$#","y`$#","gk$#","'.%#","vt%#","`a&#","ra'#","eq'#","$$+#","+~+#",".k-#","lb-#","g&.#","zy.#","`h^#","j!_#","za_#","|l_#","wi|#","wy`#","ms|#","-x|#","a&a#","!&a#","dbb#","r!c#","|jc#","ztc#"};
+const char* probes[] = {"aq!!","c-#!","+|#!","+&$!","ko$!","il%!","sj&!","u^&!","_b'!","xy'!","!u*!",".l*!","mm+!","af+!","g#.!","bk.!","l#^!","~`^!","u+`!","r!`!","!w`!","hf|!","bz|!","&u~!","zza!","gda!","l'c!","~rb!","cdc!","`|d!","l!e!","ewe!","+mf!","z.f!","u.h!","vyg!","pph!","_ki!","s~j!","*!j!","#mk!","!gk!","xsl!","^`m!",".#n!","ntm!","a!o!","luo!","jyo!","ebp!","^ar!","ttq!","^gr!","lnr!","``t!","qvs!","+*u!","fru!","!av!","!.v!","qfx!","'bx!","kzx!","a'y!","$nz!","_yz!"};
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #ifndef THREAD_COUNT
 # define THREAD_COUNT 8
 #endif  /* THREAD_COUNT */
 #define SPLIT_SIZE (0x100000000LL / THREAD_COUNT)
+#define KEY_SIZE 4
 
 
 static pthread_t thread[THREAD_COUNT];
@@ -21,8 +22,9 @@ static int global_best_seed_score[THREAD_COUNT];
 static uint32_t jenkins(const char* str, uint32_t seed) {
   uint32_t hash;
 
-  for (hash = seed; *str != '\0'; str++) {
-    hash += (uint32_t) *str;
+  hash = seed;
+  for (int i = 0; i < KEY_SIZE; i++) {
+    hash += (uint32_t) str[i];
     hash += hash << 10;
     hash ^= hash >> 6;
   }
