@@ -90,8 +90,8 @@ void* compute(void* arg) {
 
     if (progress - last_progress >= 1.0) {
       last_progress = progress;
-      fprintf(stderr, "t=%d p=%d seed=%08x score=%d\n", thread_num,
-              (int) last_progress, best_seed, best);
+      fprintf(stderr, "t=%02d p=%02d%% c=%08x | seed=%08x score=%d\n",
+              thread_num, (int) last_progress, seed, best_seed, best);
     }
 
     score = check(seed);
