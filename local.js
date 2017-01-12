@@ -126,6 +126,8 @@ for (let i = 0; i < EXTRACT_COUNT; i++) {
   for (let j = 0; j < r.avg.length; j++) {
     const avg = r.avg[j];
     const wstd = r.stddev[j] / avg;
+
+    // Totally adhoc way to choose min/max with lowest stddev
     let hscore = avg * Math.sqrt(1 - wstd);
     let lscore = avg * Math.sqrt(1 + wstd);
 
