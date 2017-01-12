@@ -4,10 +4,12 @@
 #include <stdint.h>
 
 const char* keys[] = {"+!!!","$!!!","&!!!","b!!!","|!!!","'!!!","%!!!","!!!!","*!!!","-!!!","`!!!",".!!!","a!!!","#!!!","^!!!","_!!!","~!!!"};
-const char* probes[] = {"-m!!","u^!!","p!$!","o#$!","_&%!","e~%!","bg&!","s.&!","nb'!","*o'!","#f*!","gt*!","ml-!","lh-!","!c.!","vx-!","a*^!","do^!","ly_!","-*`!","kn`!","ru`!","o$~!","mo~!","~*b!","b~a!","`yb!","-ac!","`lc!","~hd!","'ue!","&fe!","_ye!","umf!","u_h!","rag!","nai!","oji!","*vi!","ovj!","j!l!","+uk!","-hl!","nam!","nrm!","_fn!","pmn!","hoo!","%cp!","yup!","tzq!","soq!","f_s!","tis!","&vs!","-~t!","lvu!","s~u!","y_v!","e$w!","f*x!","%_x!",".ty!","%hy!","!$z!","*`z!","!k!#","s|!#","zs##","*#$#","-d%#","v|%#","|'&#","i|&#","`i'#","jb'#","i*+#","lf+#","lg-#","ax+#","-a.#","y..#","^e^#","cl^#","td_#","yb_#","mo`#","`i|#","p&~#","ix~#","r~a#","j%b#","&gc#","`gb#","dld#","kwc#"};
+const char* probes[] = {"sy!!","o|!!","fr#!","xb#!","n^%!","'t$!","mn&!","ec&!","ye'!","b~'!","fl*!","``*!","ut+!","fe-!","+a.!",".*.!","qz^!","l%^!",".d_!","d'`!","&d|!","$h`!",".c~!","p$~!","hka!","hz~!","_&c!","jpb!","'zc!","|ld!","*%e!","gfe!","j_f!","l*f!","vog!","ukg!","gfh!","%vh!","umi!","ibj!","b!l!","aqk!","zkl!","^.m!","vgm!","|lm!","`vn!","h|o!","-#p!","'!q!","*fq!","&^r!","pcr!","oqr!","+dt!","f$t!","zuu!","bzu!","^*w!","d-v!","&ix!","gsw!","$gy!","*oy!","ekz!","nxz!","m^!#","er!#","%^$#","y`$#","gk$#","'.%#","vt%#","`a&#","ra'#","eq'#","$$+#","+~+#",".k-#","lb-#","g&.#","zy.#","`h^#","j!_#","za_#","|l_#","wi|#","wy`#","ms|#","-x|#","a&a#","!&a#","dbb#","r!c#","|jc#","ztc#"};
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-#define THREAD_COUNT 8
+#ifndef THREAD_COUNT
+# define THREAD_COUNT 8
+#endif  /* THREAD_COUNT */
 #define SPLIT_SIZE (0x100000000LL / THREAD_COUNT)
 
 
