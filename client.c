@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,7 +34,7 @@ static struct {
 
 static void prepare_req(const char* probe) {
   state.req_len = snprintf(state.buffer, sizeof(state.buffer),
-                           "GET / HTTP/1.1\r\n%s:.\r\n%s\r\n",
+                           "HEAD / HTTP/1.1\r\n%s:.\r\n%s\r\n",
                            probe, state.post);
 }
 
@@ -97,6 +98,9 @@ static void run() {
       static mach_timebase_info_data_t info;
       int64_t start_ns;
       int64_t end_ns;
+#elif defined(__linux__)
+      struct timespec start_ts;
+      struct timespec end_ts;
 #else
       struct timeval start_tv;
       struct timeval end_tv;
@@ -109,6 +113,9 @@ static void run() {
         abort();
 
       start_ns = mach_absolute_time() * info.numer / info.denom;
+#elif defined(__linux__)
+      err = clock_gettime(CLOCK_MONOTONIC, &start_ts);
+      assert(err == 0);
 #else
       err = gettimeofday(&start_tv, NULL);
       assert(err == 0);
@@ -124,6 +131,12 @@ static void run() {
       end_ns = mach_absolute_time() * info.numer / info.denom;
 
       delta = end_ns - start_ns;
+#elif defined(__linux__)
+      err = clock_gettime(CLOCK_MONOTONIC, &end_ts);
+      assert(err == 0);
+
+      delta = (int64_t) (end_ts.tv_sec - start_ts.tv_sec) * 1e9 +
+              (end_ts.tv_nsec - start_ts.tv_nsec);
 #else
       err = gettimeofday(&end_tv, NULL);
       assert(err == 0);
@@ -242,6 +255,8 @@ int main(int argc, char** argv) {
     fprintf(stderr, "%s port host repeats probe1:... key1:...\n", argv[0]);
     return -1;
   }
+
+  signal(SIGPIPE, SIG_IGN);
 
   port = atoi(argv[1]);
   host = argv[2];

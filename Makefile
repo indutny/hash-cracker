@@ -8,6 +8,6 @@ client: client.c
 	$(CC) $(CFLAGS) $< -o $@ -lpthread
 
 brute: brute.c
-	$(CC) $(CFLAGS) -DTHREAD_COUNT=$(THREAD_COUNT) $< -o $@ -lpthread
+	$(CC) $(CFLAGS) -DTHREAD_COUNT=$(THREAD_COUNT) $< -o $@ -lpthread -lm
 
 .PHONY: all
