@@ -7,7 +7,3 @@ http.createServer((req, res) => {
 }).listen(8000, () => {
   console.log('Listening');
 });
-
-setInterval(() => {
-  console.log(process.memoryUsage());
-}, 5000);
