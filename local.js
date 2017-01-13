@@ -2,8 +2,8 @@
 
 // Needs to be run with --hash_seed=1 and node compiled --without-snapshot
 
-const SEED = 13589;
-const REPEAT = 100;
+const SEED = 1;
+const REPEAT = 20;
 const EXTRACT_COUNT = 48;
 
 // 2093 hits the limit of transitions
@@ -125,11 +125,11 @@ for (let i = 0; i < EXTRACT_COUNT; i++) {
   let maxI = 0;
   for (let j = 0; j < r.avg.length; j++) {
     const avg = r.avg[j];
-    const wstd = r.stddev[j] / avg;
+    const wstd = Math.exp(-r.stddev[j] / avg);
 
     // Totally adhoc way to choose min/max with lowest stddev
-    let hscore = avg * Math.sqrt(1 - wstd);
-    let lscore = avg * Math.sqrt(1 + wstd);
+    let hscore = avg * wstd;
+    let lscore = avg / wstd;
 
     if (lscore < min) {
       min = lscore;
@@ -143,14 +143,16 @@ for (let i = 0; i < EXTRACT_COUNT; i++) {
   }
 
   console.log(
-      '[%d] min: key=%s hsh=%s std=%d pos=%d || ' +
-          'max: key=%s hsh=%s std=%d pos=%d',
+      '[%d] min: key=%s hsh=%s std=%d avg=%d pos=%d || ' +
+          'max: key=%s hsh=%s std=%d avg=%d pos=%d',
       i,
       probes[minI], hash(probes[minI]).toString(16),
       (r.stddev[minI] / r.avg[minI]).toFixed(2),
+      r.avg[minI].toFixed(2),
       findPos(probes[minI]),
       probes[maxI], hash(probes[maxI]).toString(16),
       (r.stddev[maxI] / r.avg[maxI]).toFixed(2),
+      r.avg[maxI].toFixed(2),
       findPos(probes[maxI]));
 
   results.push(probes[minI], probes[maxI]);

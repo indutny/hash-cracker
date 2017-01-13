@@ -123,11 +123,11 @@ async.forEachLimit(iter, PARALLEL, (_, callback) => {
     let maxI = 0;
     for (let j = 0; j < r.avg.length; j++) {
       const avg = r.avg[j];
-      const wstd = r.stddev[j] / avg;
+      const wstd = Math.exp(-r.stddev[j] / avg);
 
       // Totally adhoc way to choose min/max with lowest stddev
-      let hscore = avg * Math.sqrt(1 - wstd);
-      let lscore = avg * Math.sqrt(1 + wstd);
+      let hscore = avg * wstd;
+      let lscore = avg / wstd;
 
       if (lscore < min) {
         min = lscore;
