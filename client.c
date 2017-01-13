@@ -276,6 +276,7 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  state.addr.sin_family = AF_INET;
   state.addr.sin_port = htons(port);
 
   run();
