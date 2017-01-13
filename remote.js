@@ -3,12 +3,13 @@
 const async = require('async');
 const spawn = require('child_process').spawn;
 
-const PORT = 80;
-const HOST = '104.131.116.26';
+const PORT = (process.argv[2] || 8000) | 0;
+const HOST = process.argv[3] || '127.0.0.1';
 
 const SEED = 1;
 const REPEAT = 10;
-const EXTRACT_COUNT = 48;
+const EXTRACT_COUNT = 96;
+const PARALLEL = 10;
 
 // 2093 hits the limit of transitions
 const PROBES_COUNT = 2093;
@@ -104,10 +105,12 @@ console.log(`const char* keys[] = ${toCArray(keys)};`);
 
 let offset = 0;
 let results = [];
-let i = 0;
-async.whilst(() => {
-  return i < EXTRACT_COUNT;
-}, (callback) => {
+let iter = [];
+for (let i = 0; i < EXTRACT_COUNT; i++)
+  iter.push(i);
+
+let iteration = 0;
+async.forEachLimit(iter, PARALLEL, (_, callback) => {
   const probes = [];
   for (let j = 17; j < 17 + PROBES_COUNT; j++)
     probes.push(key(j + offset));
@@ -140,7 +143,7 @@ async.whilst(() => {
     console.log(
         '[%d] min: key=%s hsh=%s std=%d avg=%d pos=%d || ' +
             'max: key=%s hsh=%s std=%d avg=%d pos=%d',
-        i,
+        iteration++,
         probes[minI], hash(probes[minI]).toString(16),
         (r.stddev[minI] / r.avg[minI]).toFixed(2),
         r.avg[minI].toFixed(2),
@@ -154,7 +157,6 @@ async.whilst(() => {
 
     console.log(`const char* probes[] = ${toCArray(results)};`);
 
-    i++;
     callback(null);
   });
 }, () => {
