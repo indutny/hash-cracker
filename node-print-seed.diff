@@ -1,0 +1,12 @@
+diff --git a/deps/v8/src/heap/heap.cc b/deps/v8/src/heap/heap.cc
+index 7eb5af3b6a..4463aa9127 100644
+--- a/deps/v8/src/heap/heap.cc
++++ b/deps/v8/src/heap/heap.cc
+@@ -5350,6 +5350,7 @@ bool Heap::SetUp() {
+   if (FLAG_randomize_hashes) {
+     if (FLAG_hash_seed == 0) {
+       int rnd = isolate()->random_number_generator()->NextInt();
++      fprintf(stderr, "seed: %08x\n", rnd & Name::kHashBitMask);
+       set_hash_seed(Smi::FromInt(rnd & Name::kHashBitMask));
+     } else {
+       set_hash_seed(Smi::FromInt(FLAG_hash_seed));
