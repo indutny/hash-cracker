@@ -1,6 +1,7 @@
 /client
 /brute
 *.dSYM
+out/
 
 node_modules/
 npm-debug.log

@@ -3,10 +3,11 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "src/common.h"
+
 const char* keys[] = {"+!!!","$!!!","&!!!","b!!!","|!!!","'!!!","%!!!","!!!!","*!!!","-!!!","`!!!",".!!!","a!!!","#!!!","^!!!","_!!!","~!!!"};
 const char* probes[] = {"#r!!","n%#!","we$!","+e#!",".m$!","ub%!","s#&!","i^&!","zt'!","k+*!","md+!","cd*!","go+!","~e-!","tm.!",".$.!","%*_!","q&^!","mt_!","!i_!","*g|!","o`|!","#g~!",".h~!","hpa!","`'b!","drb!","!gb!","mcd!","oqc!","|we!","wge!","taf!","^of!","b.g!","$ug!","$$i!","w|i!","dxi!","dqj!","b%l!","o#k!","#sl!","oxl!","-mm!","w_n!","qvn!","s_o!","zop!","$up!","nkq!","$vq!","ees!","+gs!","qat!","$vs!","x'u!","_nu!","ecv!","kgv!","phx!","-kw!","c_y!","aiy!","elz!","`pz!","p`!#","yi!#","~q##","t+$#","sv$#",".n%#","hj&#","~$'#","_-'#","ot'#","qe*#","lk*#",".q-#","$e-#","kt.#","dw.#","|u^#","~^^#","#k_#","+_`#","kk`#","*h|#","!y~#","r_~#","pla#","$#b#","i.c#","bpb#","kgd#","cvc#"};
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #ifndef THREAD_COUNT
 # define THREAD_COUNT 8
 #endif  /* THREAD_COUNT */
