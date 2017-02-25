@@ -58,8 +58,8 @@ __kernel void brute_wide_map(const uint seed_off,
       uint4 key_hash;
 
       key_hash = hashes[j];
-      score += select(uint4(0), uint4(1), left_hash < key_hash);
-      score += select(uint4(0), uint4(1), key_hash <= right_hash);
+      score += select(uint4(1), uint4(0), left_hash < key_hash);
+      score += select(uint4(1), uint4(0), key_hash <= right_hash);
     }
   }
 

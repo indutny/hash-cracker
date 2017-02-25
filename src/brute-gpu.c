@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/time.h>
+#ifdef BRUTE_PROFILING
+# include <sys/time.h>
+#endif  /* BRUTE_PROFILING */
 
 #include "src/common.h"
 #include "src/brute-gpu-program.h"
@@ -332,34 +334,61 @@ int brute_run(brute_state_t* st) {
 }
 
 
-int main() {
+static unsigned int* brute_parse_dataset(const char* value,
+                                         unsigned int* key_count,
+                                         unsigned int* probe_count) {
+  const char* p;
+  unsigned int i;
+  unsigned int total;
+  unsigned int acc;
+  unsigned int shift;
+  unsigned int* result;
+
+  p = value;
+  for (total = 1; *p != '\0'; p++)
+    if (*p == ':' || *p == '@')
+      total++;
+
+  result = malloc(total * sizeof(*result));
+  if (result == NULL)
+    return NULL;
+
+  acc = 0;
+  p = value;
+  for (i = 0, shift = 0; *p != '\0'; p++) {
+    if (*p == ':' || *p == '@') {
+      result[i++] = acc;
+      acc = 0;
+      shift = 0;
+
+      if (*p == '@')
+        *key_count = i;
+    } else {
+      acc |= (unsigned int) *p << shift;
+      shift += 8;
+    }
+  }
+  result[i] = acc;
+
+  *probe_count = total - *key_count;
+
+  return result;
+}
+
+
+int main(int argc, char** argv) {
   brute_state_t st;
   brute_state_options_t options;
 
-  static unsigned int key_count = 17;
-  static unsigned int probe_count = 96;
-  static unsigned int dataset[] = {
-  0x2121212b,0x21212124,0x21212126,0x21212162,0x2121217c,0x21212127,0x21212125,0x21212121,
-  0x2121212a,0x2121212d,0x21212160,0x2121212e,0x21212161,0x21212123,0x2121215e,0x2121215f,
-  0x2121217e,
-  0x21217223,0x2123256e,0x21246577,0x2123652b,0x21246d2e,0x21256275,0x21262373,0x21265e69,
-  0x2127747a,0x212a2b6b,0x212b646d,0x212a6463,0x212b6f67,0x212d657e,0x212e6d74,0x212e242e,
-  0x215f2a25,0x215e2671,0x215f746d,0x215f6921,0x217c672a,0x217c606f,0x217e6723,0x217e682e,
-  0x21617068,0x21622760,0x21627264,0x21626721,0x2164636d,0x2163716f,0x2165777c,0x21656777,
-  0x21666174,0x21666f5e,0x21672e62,0x21677524,0x21692424,0x21697c77,0x21697864,0x216a7164,
-  0x216c2562,0x216b236f,0x216c7323,0x216c786f,0x216d6d2d,0x216e5f77,0x216e7671,0x216f5f73,
-  0x21706f7a,0x21707524,0x21716b6e,0x21717624,0x21736565,0x2173672b,0x21746171,0x21737624,
-  0x21752778,0x21756e5f,0x21766365,0x2176676b,0x21786870,0x21776b2d,0x21795f63,0x21796961,
-  0x217a6c65,0x217a7060,0x23216070,0x23216979,0x2323717e,0x23242b74,0x23247673,0x23256e2e,
-  0x23266a68,0x2327247e,0x23272d5f,0x2327746f,0x232a6571,0x232a6b6c,0x232d712e,0x232d6524,
-  0x232e746b,0x232e7764,0x235e757c,0x235e5e7e,0x235f6b23,0x23605f2b,0x23606b6b,0x237c682a,
-  0x237e7921,0x237e5f72,0x23616c70,0x23622324,0x23632e69,0x23627062,0x2364676b,0x23637663
-  };
+  if (argc < 3) {
+    fprintf(stderr, "Usage: %s device_id dataset\n", argv[0]);
+    fprintf(stderr, "Not enough arguments\n");
+    return -1;
+  }
 
-  options.device = 1;
-  options.dataset = dataset;
-  options.key_count = key_count;
-  options.probe_count = probe_count;
+  options.device = atoi(argv[1]);
+  options.dataset = brute_parse_dataset(argv[2], &options.key_count,
+                                        &options.probe_count);
 
   if (0 != brute_state_init(&st, &options))
     return -1;

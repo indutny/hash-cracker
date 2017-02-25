@@ -5,6 +5,7 @@
 const SEED = 1;
 const REPEAT = 20;
 const EXTRACT_COUNT = 48;
+const KEY_COUNT = 17;
 
 // 2093 hits the limit of transitions
 const PROBES_COUNT = 2093;
@@ -33,12 +34,16 @@ function hash(str) {
   return (hash >>> 0) & 0x3fffffff;
 }
 
+const ALPHABET_FIRST =
+    'abcdefghijklmnopqrstuvwxyz'.split('');
 const ALPHABET =
-    '!#$%&\'*+-.^_`|~abcdefghijklmnopqrstuvwxyz'.split('');
+    '0123456789abcdefghijklmnopqrstuvwxyz'.split('');
 
 function key(i) {
   let r = '';
   let t = i;
+  r += ALPHABET_FIRST[t % ALPHABET_FIRST.length];
+  t = (t / ALPHABET_FIRST.length) | 0;
   while (r.length < 4) {
     r += ALPHABET[t % ALPHABET.length];
     t = (t / ALPHABET.length) | 0;
@@ -48,7 +53,7 @@ function key(i) {
 
 const keys = [];
 // 18 keys trigger hashmap
-for (let i = 0; i < 17; i++) {
+for (let i = 0; i < KEY_COUNT; i++) {
   keys.push(key(i));
 }
 
@@ -107,13 +112,12 @@ function toCArray(arr) {
   return '{' + arr.map(e => JSON.stringify(e)).join(',') + '}';
 }
 
-console.log(`const char* keys[] = ${toCArray(keys)};`);
-
 let offset = 0;
 let results = [];
+let hits = 0;
 for (let i = 0; i < EXTRACT_COUNT; i++) {
   const probes = [];
-  for (let j = 17; j < 17 + PROBES_COUNT; j++)
+  for (let j = KEY_COUNT; j < KEY_COUNT + PROBES_COUNT; j++)
     probes.push(key(j + offset));
   offset += probes.length;
 
@@ -155,10 +159,11 @@ for (let i = 0; i < EXTRACT_COUNT; i++) {
       r.avg[maxI].toFixed(2),
       findPos(probes[maxI]));
 
+  if (findPos(probes[minI]) > findPos(probes[maxI]))
+    hits++;
+
   results.push(probes[minI], probes[maxI]);
 
-  console.log(`const char* probes[] = ${toCArray(results)};`);
+  console.log(keys.join(':') + '@' + results.join(':'));
 }
-
-console.log(`const char* keys[] = ${toCArray(keys)};`);
-console.log(`const char* probes[] = ${toCArray(results)};`);
+console.log(hits);
