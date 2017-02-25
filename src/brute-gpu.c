@@ -386,10 +386,12 @@ int brute_run(brute_state_t* st) {
                 (tv_end.tv_usec - tv_start.tv_usec) / 1e6);
 #endif  /* BRUTE_PROFILING */
 
-    if (i % percent_part == 0)
-      fprintf(stderr, "[%02d%%]\n", (i * 100) / section_count);
+    if (i % percent_part == 0) {
+      fprintf(stderr, "\r[%02d%%]", (i * 100) / section_count);
+    }
   }
 
+  fprintf(stderr, "\n");
   for (i = 0; i < result_list.count; i++) {
     brute_result_t* r;
 
