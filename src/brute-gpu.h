@@ -49,6 +49,7 @@ struct brute_state_options_s {
 };
 
 struct brute_section_s {
+  cl_kernel kernel;
   cl_event event;
 
   /* Pipeline of buffers (allocate once) */

@@ -200,6 +200,7 @@ int brute_log_event_time(cl_event event, const char* desc) {
 
 int brute_section_init(brute_state_t* st, brute_section_t* sect) {
   cl_int err;
+  cl_kernel kernel;
 
   sect->result_count = BRUTE_SECTION_SIZE / 4;
 
@@ -212,12 +213,29 @@ int brute_section_init(brute_state_t* st, brute_section_t* sect) {
 
   /* Storage for host results */
   sect->host_results = malloc(sect->result_count * sizeof(*sect->host_results));
-  if (sect->host_results == NULL) {
-    clReleaseMemObject(sect->results);
-    return -1;
-  }
+  if (sect->host_results == NULL)
+    goto fail_alloc_results;
+
+  kernel = clCreateKernel(st->program, "brute_wide_map", &err);
+  OPENCL_CHECK_GOTO(err, "clCreateKernel(wide_map)", fail_create_kernel);
+
+  err = clSetKernelArg(kernel, 1, sizeof(st->dataset), &st->dataset);
+  err |= clSetKernelArg(kernel, 2, sizeof(sect->results), &sect->results);
+  OPENCL_CHECK_GOTO(err, "clSetKernelArg(wide_map)", fail_set_arg);
+
+  sect->kernel = kernel;
 
   return 0;
+
+fail_set_arg:
+  clReleaseKernel(kernel);
+
+fail_create_kernel:
+  free(sect->host_results);
+
+fail_alloc_results:
+  clReleaseMemObject(sect->results);
+  return -1;
 }
 
 
@@ -235,23 +253,17 @@ int brute_section_enqueue(brute_state_t* st,
                           unsigned int seed_off) {
   size_t global_size;
   cl_int err;
-  cl_kernel kernel;
 
-  kernel = clCreateKernel(st->program, "brute_wide_map", &err);
-  OPENCL_CHECK(err, "clCreateKernel(wide_map)");
-
-  err |= clSetKernelArg(kernel, 0, sizeof(seed_off), &seed_off);
-  err |= clSetKernelArg(kernel, 1, sizeof(st->dataset), &st->dataset);
-  err |= clSetKernelArg(kernel, 2, sizeof(sect->results), &sect->results);
-  OPENCL_CHECK_GOTO(err, "clSetKernelArg(wide_map)", fail_set_arg);
+  err = clSetKernelArg(sect->kernel, 0, sizeof(seed_off), &seed_off);
+  OPENCL_CHECK(err, "clSetKernelArg(wide_map)");
 
   global_size = sect->result_count;
-  err = clEnqueueNDRangeKernel(st->queue, kernel,
+  err = clEnqueueNDRangeKernel(st->queue, sect->kernel,
                                1,
                                NULL,
                                &global_size, NULL,
                                0, NULL, &sect->event);
-  OPENCL_CHECK_GOTO(err, "clEnqueueNDRangeKernel(wide_map)", fail_set_arg);
+  OPENCL_CHECK(err, "clEnqueueNDRangeKernel(wide_map)");
 
 #ifdef BRUTE_PROFILING
   clWaitForEvents(1, &sect->event);
@@ -259,12 +271,7 @@ int brute_section_enqueue(brute_state_t* st,
   brute_log_event_time(sect->event, "wide_map");
 #endif  /* BRUTE_PROFILING */
 
-  clReleaseKernel(kernel);
   return 0;
-
-fail_set_arg:
-  clReleaseKernel(kernel);
-  return -1;
 }
 
 
@@ -304,6 +311,7 @@ int brute_section_merge_results(brute_state_t* st, brute_section_t* sect,
 
   local.list = sect->host_results;
   local.count = sect->result_count;
+  clWaitForEvents(1, &sect->event);
 
   err = clEnqueueReadBuffer(st->queue,
                             sect->results,
