@@ -5,8 +5,8 @@ Experimental timing attack on V8's hash seed.
 ## Files
 
 * `node-print-seed.diff` - patch for Node.js to print V8's hash seed
-* `local.js` - script to collect local timings
-* `remote.js` - script to collect (same machine) remote timings
+* `lib/local.js` - script to collect local timings
+* `lib/remote.js` - script to collect (same machine) remote timings
 * `src/brute-gpu.c` - heavy lifting OpeNCL app to brute force the hash seed
   using timings from above scripts
 * `server.js` - target server for testing

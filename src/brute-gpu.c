@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #ifdef BRUTE_PROFILING
 # include <sys/time.h>
@@ -16,6 +17,15 @@
       if (t_err != CL_SUCCESS) {                                              \
         fprintf(stderr, "OpenCL failure: " msg " err=%d\n", t_err);           \
         return -1;                                                            \
+      }                                                                       \
+    } while (0)
+
+#define OPENCL_CHECK_GOTO(err, msg, LABEL)                                    \
+    do {                                                                      \
+      cl_int t_err = (err);                                                   \
+      if (t_err != CL_SUCCESS) {                                              \
+        fprintf(stderr, "OpenCL failure: " msg " err=%d\n", t_err);           \
+        goto LABEL;                                                           \
       }                                                                       \
     } while (0)
 
@@ -52,6 +62,7 @@ int brute_state_init(brute_state_t* st,
   st->probe_count = options->probe_count;
   st->dataset_size = st->key_count + st->probe_count;
   st->device = options->device;
+  st->best_count = options->best_count;
 
   err = clGetPlatformIDs(1, &st->platform, &platform_count);
   OPENCL_CHECK(err, "clGetPlatformIDs");
@@ -92,11 +103,11 @@ int brute_state_init(brute_state_t* st,
     OPENCL_CHECK(err, "clGetDeviceInfo(MAX_CLOCK_FREQUENCY)");
 
     fprintf(stderr, "  %s [%d] %.*s, units=%d, freq=%d\n",
-            st->device == i ? "*" : " ",
+            st->device == (int) i ? "*" : " ",
             (int) i, (int) name_len, name, (int) compute_units, (int) freq);
   }
 
-  if (st->device < 0 || st->device >= st->device_count) {
+  if (st->device < 0 || st->device >= (int) st->device_count) {
     fprintf(stderr, "Invalid device %d\n", st->device);
     return -1;
   }
@@ -257,27 +268,50 @@ int brute_section_enqueue(brute_state_t* st,
 }
 
 
-int brute_section_get_result(brute_state_t* st, brute_section_t* sect,
-                             brute_result_t* result) {
-  cl_int err;
+int brute_result_cmp(const void* a, const void* b) {
+  return ((const brute_result_t*) b)->score -
+         ((const brute_result_t*) a)->score;
+}
+
+
+void brute_result_list_merge(brute_result_list_t* a,
+                             brute_result_list_t* b) {
   unsigned int i;
+  unsigned int j;
+
+  for (i = 0, j = 0; i < a->count && j < b->count; i++) {
+    if (brute_result_cmp(&a->list[i], &b->list[j]) <= 0)
+      continue;
+
+    /* Shift everything to the right */
+    memmove(&a->list[i + 1], &a->list[i], a->count - i - 1);
+
+    /* Copy */
+    a->list[i] = b->list[j];
+    j++;
+  }
+}
+
+
+int brute_section_merge_results(brute_state_t* st, brute_section_t* sect,
+                                brute_result_list_t* global) {
+  cl_int err;
+  brute_result_list_t local;
+
+  local.list = sect->host_results;
+  local.count = sect->result_count;
 
   err = clEnqueueReadBuffer(st->queues[st->device],
                             sect->results,
                             CL_BLOCKING,
                             0,
-                            sect->result_count * sizeof(*sect->host_results),
-                            sect->host_results,
+                            local.count * sizeof(*local.list),
+                            local.list,
                             1, &sect->event, NULL);
   OPENCL_CHECK(err, "clEnqueueReadBuffer");
 
-  result->score = 0;
-  result->seed = 0;
-  for (i = 0; i < sect->result_count; i++) {
-    if (sect->host_results[i].score < result->score)
-      continue;
-    *result = sect->host_results[i];
-  }
+  qsort(local.list, local.count, sizeof(*local.list), brute_result_cmp);
+  brute_result_list_merge(global, &local);
 
   return 0;
 }
@@ -286,7 +320,7 @@ int brute_section_get_result(brute_state_t* st, brute_section_t* sect,
 int brute_run(brute_state_t* st) {
   unsigned int section_count;
   brute_section_t sect;
-  brute_result_t best;
+  brute_result_list_t result_list;
   unsigned int i;
   unsigned int percent_part;
 
@@ -296,10 +330,12 @@ int brute_run(brute_state_t* st) {
   if (0 != brute_section_init(st, &sect))
     return -1;
 
-  best.score = 0;
-  best.seed = 0;
+  result_list.count = st->best_count;
+  result_list.list = calloc(result_list.count, sizeof(*result_list.list));
+  if (result_list.list == NULL)
+    return -1;
+
   for (i = 0; i < section_count; i++) {
-    brute_result_t result;
     int err;
     unsigned int seed_off;
 #ifdef BRUTE_PROFILING
@@ -313,7 +349,7 @@ int brute_run(brute_state_t* st) {
     if (0 != brute_section_enqueue(st, &sect, seed_off))
       return -1;
 
-    err = brute_section_get_result(st, &sect, &result);
+    err = brute_section_merge_results(st, &sect, &result_list);
 
 #ifdef BRUTE_PROFILING
     gettimeofday(&tv_end, NULL);
@@ -326,14 +362,16 @@ int brute_run(brute_state_t* st) {
       fprintf(stderr, "[%02d%%]\n", (i * 100) / section_count);
     if (err != 0)
       continue;
-
-    if (result.score < best.score)
-      continue;
-
-    best = result;
   }
 
-  fprintf(stderr, "seed=%08x score=%d\n", best.seed, (int) best.score);
+  for (i = 0; i < result_list.count; i++) {
+    brute_result_t* r;
+
+    r = &result_list.list[i];
+    fprintf(stderr, "[%i] seed=%08x score=%d\n", i, r->seed, r->score);
+  }
+
+  free(result_list.list);
   brute_section_destroy(&sect);
 
   return 0;
@@ -396,6 +434,7 @@ int main(int argc, char** argv) {
   options.device = atoi(argv[1]);
   options.dataset = brute_parse_dataset(argv[2], &options.key_count,
                                         &options.probe_count);
+  options.best_count = 16;
 
   if (0 != brute_state_init(&st, &options))
     return -1;
