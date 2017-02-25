@@ -110,6 +110,7 @@ for (let i = 0; i < EXTRACT_COUNT; i++)
   iter.push(i);
 
 let iteration = 0;
+let hits = 0;
 async.forEachLimit(iter, PARALLEL, (_, callback) => {
   const probes = [];
   for (let j = 17; j < 17 + PROBES_COUNT; j++)
@@ -155,11 +156,12 @@ async.forEachLimit(iter, PARALLEL, (_, callback) => {
 
     results.push(probes[minI], probes[maxI]);
 
-    console.log(`const char* probes[] = ${toCArray(results)};`);
+    if (findPos(probes[minI]) > findPos(probes[maxI]))
+      hits++;
+    console.log(keys.join(':') + '@' + results.join(':'));
 
     callback(null);
   });
 }, () => {
-  console.log(`const char* keys[] = ${toCArray(keys)};`);
-  console.log(`const char* probes[] = ${toCArray(results)};`);
+  console.log('Hits %d', hits);
 });

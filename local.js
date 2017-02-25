@@ -166,4 +166,4 @@ for (let i = 0; i < EXTRACT_COUNT; i++) {
 
   console.log(keys.join(':') + '@' + results.join(':'));
 }
-console.log(hits);
+console.log('Hits %d', hits);

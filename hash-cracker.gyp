@@ -13,17 +13,6 @@
     ],
   },
   "targets": [{
-    "target_name": "brute",
-    "type": "executable",
-
-    "defines": [
-      "THREAD_COUNT=<(thread_count)",
-    ],
-
-    "sources": [
-      "src/brute.c",
-    ],
-  }, {
     "target_name": "brute-gpu",
     "type": "executable",
 
