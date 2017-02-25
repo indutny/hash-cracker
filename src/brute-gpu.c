@@ -35,19 +35,17 @@ static size_t kBruteGPUProgramLengths[] = { sizeof(brute_gpu_program) - 1 };
 
 static int brute_report_build_log(brute_state_t* st, const char* type) {
   cl_int err;
-  cl_uint i;
 
   fprintf(stderr, "%s log:\n", type);
-  for (i = 0; i < st->device_count; i++) {
-    char log[16384];
-    size_t log_size;
+  char log[16384];
+  size_t log_size;
 
-    err = clGetProgramBuildInfo(st->program, st->devices[i],
-        CL_PROGRAM_BUILD_LOG, sizeof(log), log, &log_size);
-    OPENCL_CHECK(err, "clGetProgramBuildInfo");
+  err = clGetProgramBuildInfo(st->program, st->device,
+      CL_PROGRAM_BUILD_LOG, sizeof(log), log, &log_size);
+  OPENCL_CHECK(err, "clGetProgramBuildInfo");
 
-    fprintf(stderr, "%.*s\n", (int) log_size, log);
-  }
+  fprintf(stderr, "%.*s\n", (int) log_size, log);
+
   return 0;
 }
 
@@ -57,14 +55,16 @@ int brute_state_init(brute_state_t* st,
   cl_int err;
   cl_uint platform_count;
   cl_uint i;
+  cl_platform_id platform;
+  cl_device_id devices[BRUTE_MAX_DEVICE_COUNT];
+  cl_uint device_count;
 
   st->key_count = options->key_count;
   st->probe_count = options->probe_count;
   st->dataset_size = st->key_count + st->probe_count;
-  st->device = options->device;
   st->best_count = options->best_count;
 
-  err = clGetPlatformIDs(1, &st->platform, &platform_count);
+  err = clGetPlatformIDs(1, &platform, &platform_count);
   OPENCL_CHECK(err, "clGetPlatformIDs");
 
   if (platform_count < 1) {
@@ -72,55 +72,57 @@ int brute_state_init(brute_state_t* st,
     return -1;
   }
 
-  err = clGetDeviceIDs(st->platform, CL_DEVICE_TYPE_GPU,
-                       ARRAY_SIZE(st->devices), st->devices, &st->device_count);
+  err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
+                       ARRAY_SIZE(devices), devices, &device_count);
   OPENCL_CHECK(err, "clGetDeviceIDs");
 
-  if (st->device_count < 1) {
+  if (device_count < 1) {
     fprintf(stderr, "No OpenCL devices to run on\n");
     return -1;
   }
 
-  fprintf(stderr, "Found %d devices:\n", (int) st->device_count);
-  for (i = 0; i < st->device_count; i++) {
+  fprintf(stderr, "Found %d devices:\n", (int) device_count);
+  for (i = 0; i < device_count; i++) {
     char name[1024];
     size_t name_len;
     cl_uint compute_units;
     cl_uint freq;
 
-    err = clGetDeviceInfo(st->devices[i], CL_DEVICE_NAME, sizeof(name), name,
+    err = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(name), name,
                           &name_len);
     OPENCL_CHECK(err, "clGetDeviceInfo");
 
-    err = clGetDeviceInfo(st->devices[i], CL_DEVICE_MAX_COMPUTE_UNITS,
+    err = clGetDeviceInfo(devices[i], CL_DEVICE_MAX_COMPUTE_UNITS,
                           sizeof(compute_units), &compute_units,
                           NULL);
     OPENCL_CHECK(err, "clGetDeviceInfo(MAX_COMPUTE_UNITS)");
 
-    err = clGetDeviceInfo(st->devices[i], CL_DEVICE_MAX_CLOCK_FREQUENCY,
+    err = clGetDeviceInfo(devices[i], CL_DEVICE_MAX_CLOCK_FREQUENCY,
                           sizeof(freq), &freq,
                           NULL);
     OPENCL_CHECK(err, "clGetDeviceInfo(MAX_CLOCK_FREQUENCY)");
 
     fprintf(stderr, "  %s [%d] %.*s, units=%d, freq=%d\n",
-            st->device == (int) i ? "*" : " ",
+            options->device == (int) i ? "*" : " ",
             (int) i, (int) name_len, name, (int) compute_units, (int) freq);
   }
 
-  if (st->device < 0 || st->device >= (int) st->device_count) {
-    fprintf(stderr, "Invalid device %d\n", st->device);
+  if (options->device < 0 || options->device >= (int) device_count) {
+    fprintf(stderr, "Invalid device %d\n", options->device);
     return -1;
   }
 
+  st->device = devices[options->device];
+
   st->context =
-      clCreateContext(0, st->device_count, st->devices, NULL, NULL, &err);
+      clCreateContext(0, 1, &st->device, NULL, NULL, &err);
   OPENCL_CHECK(err, "clCreateContext");
 
   st->program =
       clCreateProgramWithSource(st->context, ARRAY_SIZE(kBruteGPUPrograms),
                                 kBruteGPUPrograms, kBruteGPUProgramLengths,
                                 &err);
-  OPENCL_CHECK(err, "clCreateProgramWithSource");
+  OPENCL_CHECK_GOTO(err, "clCreateProgramWithSource", fail_create_program);
 
   {
     char options[1024];
@@ -131,10 +133,10 @@ int brute_state_init(brute_state_t* st,
              "-cl-strict-aliasing ",
              st->key_count, st->dataset_size);
 
-    err = clBuildProgram(st->program, st->device_count, st->devices,
+    err = clBuildProgram(st->program, 1, &st->device,
                          options, NULL, NULL);
     brute_report_build_log(st, "Build");
-    OPENCL_CHECK(err, "clBuildProgram");
+    OPENCL_CHECK_GOTO(err, "clBuildProgram", fail_build_program);
   }
 
   st->dataset = clCreateBuffer(
@@ -142,40 +144,36 @@ int brute_state_init(brute_state_t* st,
       CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_NO_ACCESS,
       (options->key_count + options->probe_count) * sizeof(*options->dataset),
       (void*) options->dataset, &err);
-  OPENCL_CHECK(err, "clCreateBuffer(dataset)");
+  OPENCL_CHECK_GOTO(err, "clCreateBuffer(dataset)", fail_build_program);
 
-  for (i = 0; i < st->device_count; i++) {
-    st->queues[i] = clCreateCommandQueue(st->context, st->devices[i],
+  st->queue = clCreateCommandQueue(st->context, st->device,
 #ifdef BRUTE_PROFILING
-        CL_QUEUE_PROFILING_ENABLE,
+      CL_QUEUE_PROFILING_ENABLE,
 #else
-        0,
+      0,
 #endif  /* BRUTE_PROFILING */
-        &err);
-    OPENCL_CHECK(err, "clCreateCommandQueue");
-  }
+      &err);
+  OPENCL_CHECK_GOTO(err, "clCreateCommandQueue", fail_create_queue);
 
   return 0;
+
+fail_create_queue:
+  clReleaseMemObject(st->dataset);
+
+fail_build_program:
+  clReleaseProgram(st->program);
+
+fail_create_program:
+  clReleaseContext(st->context);
+  return -1;
 }
 
 
 int brute_state_destroy(brute_state_t* st) {
-  cl_int err;
-  cl_uint i;
-
-  for (i = 0; i < st->device_count; i++) {
-    err = clReleaseCommandQueue(st->queues[i]);
-    OPENCL_CHECK(err, "clCreateCommandQueue");
-  }
-
-  err = clReleaseMemObject(st->dataset);
-  OPENCL_CHECK(err, "clReleaseBuffer(dataset)");
-
-  err = clReleaseProgram(st->program);
-  OPENCL_CHECK(err, "clReleaseCheck");
-
-  err = clReleaseContext(st->context);
-  OPENCL_CHECK(err, "clReleaseCheck");
+  clReleaseCommandQueue(st->queue);
+  clReleaseMemObject(st->dataset);
+  clReleaseProgram(st->program);
+  clReleaseContext(st->context);
 
   return 0;
 }
@@ -214,22 +212,20 @@ int brute_section_init(brute_state_t* st, brute_section_t* sect) {
 
   /* Storage for host results */
   sect->host_results = malloc(sect->result_count * sizeof(*sect->host_results));
-  if (sect->host_results == NULL)
+  if (sect->host_results == NULL) {
+    clReleaseMemObject(sect->results);
     return -1;
+  }
 
   return 0;
 }
 
 
 int brute_section_destroy(brute_section_t* sect) {
-  cl_int err;
-
   free(sect->host_results);
   sect->host_results = NULL;
 
-  err = clReleaseMemObject(sect->results);
-  OPENCL_CHECK(err, "clReleaseMemObject(sect)");
-
+  clReleaseMemObject(sect->results);
   return 0;
 }
 
@@ -247,16 +243,15 @@ int brute_section_enqueue(brute_state_t* st,
   err |= clSetKernelArg(kernel, 0, sizeof(seed_off), &seed_off);
   err |= clSetKernelArg(kernel, 1, sizeof(st->dataset), &st->dataset);
   err |= clSetKernelArg(kernel, 2, sizeof(sect->results), &sect->results);
-  OPENCL_CHECK(err, "clSetKernelArg(wide_map)");
+  OPENCL_CHECK_GOTO(err, "clSetKernelArg(wide_map)", fail_set_arg);
 
   global_size = sect->result_count;
-  err = clEnqueueNDRangeKernel(st->queues[st->device], kernel,
+  err = clEnqueueNDRangeKernel(st->queue, kernel,
                                1,
                                NULL,
                                &global_size, NULL,
                                0, NULL, &sect->event);
-  clReleaseKernel(kernel);
-  OPENCL_CHECK(err, "clEnqueueNDRangeKernel(wide_map)");
+  OPENCL_CHECK_GOTO(err, "clEnqueueNDRangeKernel(wide_map)", fail_set_arg);
 
 #ifdef BRUTE_PROFILING
   clWaitForEvents(1, &sect->event);
@@ -264,7 +259,12 @@ int brute_section_enqueue(brute_state_t* st,
   brute_log_event_time(sect->event, "wide_map");
 #endif  /* BRUTE_PROFILING */
 
+  clReleaseKernel(kernel);
   return 0;
+
+fail_set_arg:
+  clReleaseKernel(kernel);
+  return -1;
 }
 
 
@@ -279,16 +279,20 @@ void brute_result_list_merge(brute_result_list_t* a,
   unsigned int i;
   unsigned int j;
 
-  for (i = 0, j = 0; i < a->count && j < b->count; i++) {
-    if (brute_result_cmp(&a->list[i], &b->list[j]) <= 0)
+  for (i = 0; i < b->count; i++) {
+    /* Find insertion spot */
+    for (j = a->count; j > 0; j--)
+      if (a->list[j - 1].score > b->list[i].score)
+        break;
+
+    if (j == a->count)
       continue;
 
     /* Shift everything to the right */
-    memmove(&a->list[i + 1], &a->list[i], a->count - i - 1);
+    memmove(&a->list[j + 1], &a->list[j], a->count - j - 1);
 
     /* Copy */
-    a->list[i] = b->list[j];
-    j++;
+    a->list[j] = b->list[i];
   }
 }
 
@@ -301,7 +305,7 @@ int brute_section_merge_results(brute_state_t* st, brute_section_t* sect,
   local.list = sect->host_results;
   local.count = sect->result_count;
 
-  err = clEnqueueReadBuffer(st->queues[st->device],
+  err = clEnqueueReadBuffer(st->queue,
                             sect->results,
                             CL_BLOCKING,
                             0,
@@ -310,7 +314,6 @@ int brute_section_merge_results(brute_state_t* st, brute_section_t* sect,
                             1, &sect->event, NULL);
   OPENCL_CHECK(err, "clEnqueueReadBuffer");
 
-  qsort(local.list, local.count, sizeof(*local.list), brute_result_cmp);
   brute_result_list_merge(global, &local);
 
   return 0;
@@ -333,10 +336,9 @@ int brute_run(brute_state_t* st) {
   result_list.count = st->best_count;
   result_list.list = calloc(result_list.count, sizeof(*result_list.list));
   if (result_list.list == NULL)
-    return -1;
+    goto fail_alloc_list;
 
   for (i = 0; i < section_count; i++) {
-    int err;
     unsigned int seed_off;
 #ifdef BRUTE_PROFILING
     struct timeval tv_start;
@@ -347,9 +349,9 @@ int brute_run(brute_state_t* st) {
 
     seed_off = i * BRUTE_SECTION_SIZE;
     if (0 != brute_section_enqueue(st, &sect, seed_off))
-      return -1;
+      goto fail_enqueue;
 
-    err = brute_section_merge_results(st, &sect, &result_list);
+    brute_section_merge_results(st, &sect, &result_list);
 
 #ifdef BRUTE_PROFILING
     gettimeofday(&tv_end, NULL);
@@ -360,8 +362,6 @@ int brute_run(brute_state_t* st) {
 
     if (i % percent_part == 0)
       fprintf(stderr, "[%02d%%]\n", (i * 100) / section_count);
-    if (err != 0)
-      continue;
   }
 
   for (i = 0; i < result_list.count; i++) {
@@ -375,6 +375,13 @@ int brute_run(brute_state_t* st) {
   brute_section_destroy(&sect);
 
   return 0;
+
+fail_enqueue:
+  free(result_list.list);
+
+fail_alloc_list:
+  brute_section_destroy(&sect);
+  return -1;
 }
 
 

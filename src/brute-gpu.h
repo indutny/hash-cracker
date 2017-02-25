@@ -32,14 +32,11 @@ struct brute_state_s {
   unsigned int probe_count;
   unsigned int dataset_size;
   unsigned int best_count;
-  int device;
 
-  cl_platform_id platform;
-  cl_device_id devices[BRUTE_MAX_DEVICE_COUNT];
-  cl_uint device_count;
+  cl_device_id device;
   cl_context context;
   cl_program program;
-  cl_command_queue queues[BRUTE_MAX_DEVICE_COUNT];
+  cl_command_queue queue;
   cl_mem dataset;
 };
 
