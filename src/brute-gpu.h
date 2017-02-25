@@ -42,10 +42,11 @@ struct brute_state_s {
 
 struct brute_state_options_s {
   int device;
+  unsigned int best_count;
+
   const unsigned int* dataset;
   unsigned int key_count;
   unsigned int probe_count;
-  unsigned int best_count;
 };
 
 struct brute_section_s {

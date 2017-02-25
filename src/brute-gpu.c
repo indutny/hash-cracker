@@ -1,6 +1,7 @@
 #include "src/brute-gpu.h"
 
 #include <assert.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -107,7 +108,11 @@ int brute_state_init(brute_state_t* st,
             (int) i, (int) name_len, name, (int) compute_units, (int) freq);
   }
 
-  if (options->device < 0 || options->device >= (int) device_count) {
+  /* Just printing devices */
+  if (options->device < 0)
+    return -1;
+
+  if (options->device >= (int) device_count) {
     fprintf(stderr, "Invalid device %d\n", options->device);
     return -1;
   }
@@ -435,21 +440,103 @@ static unsigned int* brute_parse_dataset(const char* value,
 }
 
 
+static void brute_print_help(int argc, char** argv) {
+  fprintf(stderr, "Usage: %s -d <device index> dataset\n", argv[0]);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "  -d, --device  - device index to run on\n");
+  fprintf(stderr, "  -l, --list    - print all available devices\n");
+  fprintf(stderr, "  -b, --best    - number of best seeds to print\n");
+  fprintf(stderr, "  -h, --help    - print this message\n");
+  fprintf(stderr, "\n");
+}
+
+
+static void brute_print_devices() {
+  brute_state_t st;
+  brute_state_options_t options;
+
+  options.device = -1;
+  if (0 != brute_state_init(&st, &options))
+    return;
+
+  brute_state_destroy(&st);
+}
+
+
+static int brute_parse_argv(int argc, char** argv,
+                            brute_state_options_t* options) {
+  int c;
+  static const char long_flags[] = "d:b:lh";
+  static struct option long_options[] = {
+    { "device", 1, NULL, 'd' },
+    { "best", 1, NULL, 'b' },
+    { "list", 0, NULL, 'l' },
+    { "help", 0, NULL, 'h' },
+    { NULL, 0, NULL, 0 }
+  };
+
+  memset(options, 0, sizeof(*options));
+  options->device = -1;
+  options->best_count = 1;
+
+  do {
+    int index;
+
+    index = 0;
+    c = getopt_long(argc, argv, long_flags, long_options, &index);
+    switch (c) {
+      case 'd':
+        options->device = atoi(optarg);
+        break;
+      case 'b':
+        options->best_count = atoi(optarg);
+        break;
+      case 'l':
+        brute_print_devices();
+        exit(0);
+        return -1;
+      case 'h':
+        brute_print_help(argc, argv);
+        exit(0);
+        return -1;
+      default:
+        break;
+    }
+  } while (c != -1);
+
+  if (options->device < 0) {
+    brute_print_help(argc, argv);
+    return -1;
+  }
+
+  argc -= optind;
+  argv += optind;
+
+  if (argc == 0) {
+    brute_print_help(argc, argv);
+    fprintf(stderr, "`dataset` is required argument\n");
+    return -1;
+  }
+
+  options->dataset = brute_parse_dataset(argv[0],
+                                         &options->key_count,
+                                         &options->probe_count);
+  if (options->key_count == 0 || options->probe_count == 0) {
+    brute_print_help(argc, argv);
+    fprintf(stderr, "`dataset` must have both keys and probes\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+
 int main(int argc, char** argv) {
   brute_state_t st;
   brute_state_options_t options;
 
-  if (argc < 3) {
-    fprintf(stderr, "Usage: %s device_id dataset\n", argv[0]);
-    fprintf(stderr, "Not enough arguments\n");
-    fprintf(stderr, "Run '%s -1 :' to get the list of devices\n", argv[0]);
+  if (0 != brute_parse_argv(argc, argv, &options))
     return -1;
-  }
-
-  options.device = atoi(argv[1]);
-  options.dataset = brute_parse_dataset(argv[2], &options.key_count,
-                                        &options.probe_count);
-  options.best_count = 16;
 
   if (0 != brute_state_init(&st, &options))
     return -1;

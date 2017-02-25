@@ -19,7 +19,7 @@ environment. (It doesn't work on remote machines anyway)
 ```js
 npm install
 npm run build
-./out/Release/brute-gpu -1 :
+./out/Release/brute-gpu --help
 ```
 
 ## LICENSE
