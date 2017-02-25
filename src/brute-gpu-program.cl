@@ -67,7 +67,7 @@ __kernel void brute_wide_map(const uint seed_off,
     }
 
     /* Counter-intuitively left should be further in the list than right */
-    score += lpos - rpos;
+    score += clamp(lpos - rpos, int4(0), int4(1));
   }
 
   best.score = 0;
