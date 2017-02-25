@@ -10,28 +10,12 @@ static inline uint4 v8_jenkins(const uint4 input, const uint4 seed) {
   hash = seed;
   p = input;
 
-  /* i = 0 */
-  hash += p & 0xff;
-  hash += hash << 10;
-  hash ^= hash >> 6;
-  p >>= 8;
-
-  /* i = 1 */
-  hash += p & 0xff;
-  hash += hash << 10;
-  hash ^= hash >> 6;
-  p >>= 8;
-
-  /* i = 2 */
-  hash += p & 0xff;
-  hash += hash << 10;
-  hash ^= hash >> 6;
-  p >>= 8;
-
-  /* i = 3 */
-  hash += p & 0xff;
-  hash += hash << 10;
-  hash ^= hash >> 6;
+  for (uint i = 0; i < 4; i++) {
+    hash += p & 0xff;
+    hash += hash << 10;
+    hash ^= hash >> 6;
+    p >>= 8;
+  }
 
   hash += hash << 3;
   hash ^= hash >> 11;
