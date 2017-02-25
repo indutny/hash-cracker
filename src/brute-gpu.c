@@ -91,8 +91,14 @@ int brute_state_init(brute_state_t* st,
                           NULL);
     OPENCL_CHECK(err, "clGetDeviceInfo(MAX_CLOCK_FREQUENCY)");
 
-    fprintf(stderr, "  [%d] %.*s, units=%d, freq=%d\n",
+    fprintf(stderr, "  %s [%d] %.*s, units=%d, freq=%d\n",
+            st->device == i ? "*" : " ",
             (int) i, (int) name_len, name, (int) compute_units, (int) freq);
+  }
+
+  if (st->device < 0 || st->device >= st->device_count) {
+    fprintf(stderr, "Invalid device %d\n", st->device);
+    return -1;
   }
 
   st->context =
@@ -383,6 +389,7 @@ int main(int argc, char** argv) {
   if (argc < 3) {
     fprintf(stderr, "Usage: %s device_id dataset\n", argv[0]);
     fprintf(stderr, "Not enough arguments\n");
+    fprintf(stderr, "Run '%s -1 :' to get the list of devices\n", argv[0]);
     return -1;
   }
 
