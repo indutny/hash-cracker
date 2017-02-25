@@ -1,6 +1,6 @@
 struct brute_result_s {
   uint seed;
-  uint score;
+  int score;
 };
 
 static inline uint4 v8_jenkins(const uint4 input, const uint4 seed) {
@@ -32,7 +32,7 @@ __kernel void brute_wide_map(const uint seed_off,
   uint4 seed;
   int gid;
   uint4 hashes[BRUTE_KEY_COUNT];
-  uint4 score;
+  int4 score;
   struct brute_result_s best;
 
   gid = get_global_id(0);
@@ -50,17 +50,24 @@ __kernel void brute_wide_map(const uint seed_off,
   for (uint i = BRUTE_KEY_COUNT; i < BRUTE_DATASET_SIZE; i += 2) {
     uint4 left_hash;
     uint4 right_hash;
+    int4 lpos;
+    int4 rpos;
 
     left_hash = v8_jenkins(dataset[i], seed);
     right_hash = v8_jenkins(dataset[i + 1], seed);
 
+    lpos = 0;
+    rpos = 0;
     for (uint j = 0; j < BRUTE_KEY_COUNT; j++) {
       uint4 key_hash;
 
       key_hash = hashes[j];
-      score += select(uint4(1), uint4(0), left_hash < key_hash);
-      score += select(uint4(1), uint4(0), key_hash <= right_hash);
+      lpos += select(int4(1), int4(0), left_hash < key_hash);
+      rpos += select(int4(1), int4(0), right_hash < key_hash);
     }
+
+    /* Counter-intuitively left should be further in the list than right */
+    score += lpos - rpos;
   }
 
   best.score = 0;

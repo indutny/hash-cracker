@@ -36,18 +36,31 @@ static size_t kBruteGPUProgramLengths[] = { sizeof(brute_gpu_program) - 1 };
 
 static int brute_report_build_log(brute_state_t* st, const char* type) {
   cl_int err;
-
-  fprintf(stderr, "%s log:\n", type);
-  char log[16384];
+  char* log;
   size_t log_size;
 
+  fprintf(stderr, "%s log:\n", type);
+
   err = clGetProgramBuildInfo(st->program, st->device,
-      CL_PROGRAM_BUILD_LOG, sizeof(log), log, &log_size);
-  OPENCL_CHECK(err, "clGetProgramBuildInfo");
+      CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+  OPENCL_CHECK(err, "clGetProgramBuildInfo (query)");
+
+  log = malloc(log_size);
+  if (log == NULL)
+    return -1;
+
+  err = clGetProgramBuildInfo(st->program, st->device,
+      CL_PROGRAM_BUILD_LOG, log_size, log, &log_size);
+  OPENCL_CHECK_GOTO(err, "clGetProgramBuildInfo", fail_get_info);
 
   fprintf(stderr, "%.*s\n", (int) log_size, log);
+  free(log);
 
   return 0;
+
+fail_get_info:
+  free(log);
+  return -1;
 }
 
 

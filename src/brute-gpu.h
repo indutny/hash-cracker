@@ -63,7 +63,7 @@ struct brute_section_s {
 
 struct brute_result_s {
   unsigned int seed;
-  unsigned int score;
+  int score;
 };
 
 struct brute_result_list_s {
