@@ -24,6 +24,10 @@ static struct {
   int probe_count;
   char* post;
   struct sockaddr_in addr;
+
+  double total_avg;
+  double total_stddev;
+
   double* avg;
   double* stddev;
 
@@ -145,14 +149,22 @@ static void run() {
               (end_tv.tv_usec - start_tv.tv_usec);
 #endif  /* __APPLE__ */
 
+      state.total_avg += delta;
       state.avg[j] += delta;
+      state.total_stddev += delta * delta;
       state.stddev[j] += delta * delta;
     }
   }
 
+  state.total_avg /= (float) state.repeat * state.probe_count;
+  state.total_stddev /= (float) state.repeat * state.probe_count;
+  state.total_stddev -= state.total_avg * state.total_avg;
+  state.total_stddev = sqrt(state.total_stddev);
+  fprintf(stdout, "%f\n%f\n", state.total_avg, state.total_stddev);
+
   for (int i = 0; i < state.probe_count; i++) {
-    state.avg[i] /= state.repeat;
-    state.stddev[i] /= state.repeat;
+    state.avg[i] /= (float) state.repeat;
+    state.stddev[i] /= (float) state.repeat;
     state.stddev[i] -= state.avg[i] * state.avg[i];
     state.stddev[i] = sqrt(state.stddev[i]);
 
@@ -266,6 +278,9 @@ int main(int argc, char** argv) {
 
   split_probes(probes);
   join_keys(keys);
+
+  state.total_avg = 0.0;
+  state.total_stddev = 0.0;
 
   state.avg = calloc(1, state.probe_count * sizeof(*state.avg));
   state.stddev = calloc(1, state.probe_count * sizeof(*state.stddev));
