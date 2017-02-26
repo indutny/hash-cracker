@@ -95,7 +95,8 @@ static void run() {
   } while (err == -1 && errno == EINTR);
   assert(err == 0);
 
-  for (int i = 0; i < state.repeat; i++) {
+  /* Start with negative value to warm up the server a bit */
+  for (int i = -2; i < state.repeat; i++) {
     for (int j = 0; j < state.probe_count; j++) {
       double delta;
 #ifdef __APPLE__
@@ -149,10 +150,12 @@ static void run() {
               (end_tv.tv_usec - start_tv.tv_usec);
 #endif  /* __APPLE__ */
 
-      state.total_avg += delta;
-      state.avg[j] += delta;
-      state.total_stddev += delta * delta;
-      state.stddev[j] += delta * delta;
+      if (i >= 0) {
+        state.total_avg += delta;
+        state.avg[j] += delta;
+        state.total_stddev += delta * delta;
+        state.stddev[j] += delta * delta;
+      }
     }
   }
 
