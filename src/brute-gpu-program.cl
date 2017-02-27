@@ -39,7 +39,7 @@ __kernel void brute_wide_map(const uint seed_off,
 
   seed_start = seed_off + gid * 4;
   seed = seed_start;
-  seed += (uint4) (1, 2, 3, 4);
+  seed += (uint4) (0, 1, 2, 3);
 
   /* Compute hashes first */
   for (uint i = 0; i < BRUTE_KEY_COUNT; i++)
