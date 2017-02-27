@@ -44,7 +44,7 @@ static inline BRUTE_UVEC v8_jenkins(const BRUTE_UVEC input,
 
 
 __kernel void brute_wide_map(const uint seed_off,
-                             __global const uint* dataset,
+                             __constant const uint* dataset,
                              __global struct brute_result_s* results) {
   uint seed_start;
   BRUTE_UVEC seed;

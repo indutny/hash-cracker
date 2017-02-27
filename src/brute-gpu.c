@@ -451,6 +451,10 @@ static unsigned int* brute_parse_dataset(const char* value,
   result[i] = acc;
 
   *probe_count = total - *key_count;
+  if (*probe_count % 2 != 0) {
+    free(result);
+    return NULL;
+  }
 
   return result;
 }
@@ -525,21 +529,20 @@ static int brute_parse_argv(int argc, char** argv,
     return -1;
   }
 
-  argc -= optind;
-  argv += optind;
-
-  if (argc == 0) {
+  if (argc <= optind) {
     brute_print_help(argc, argv);
     fprintf(stderr, "`dataset` is required argument\n");
     return -1;
   }
 
-  options->dataset = brute_parse_dataset(argv[0],
+  options->dataset = brute_parse_dataset(argv[optind],
                                          &options->key_count,
                                          &options->probe_count);
   if (options->key_count == 0 || options->probe_count == 0) {
     brute_print_help(argc, argv);
-    fprintf(stderr, "`dataset` must have both keys and probes\n");
+    fprintf(stderr,
+            "`dataset` must have both keys and even number of probes\n");
+    free(options->dataset);
     return -1;
   }
 
