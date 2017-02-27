@@ -21,6 +21,10 @@
 # define BRUTE_SECTION_SIZE 0x40000
 #endif  /* !BRUTE_SECTION_SIZE */
 
+#ifndef BRUTE_VEC_WIDTH
+# define BRUTE_VEC_WIDTH 4
+#endif  /* !BRUTE_VEC_WIDTH */
+
 typedef struct brute_state_s brute_state_t;
 typedef struct brute_state_options_s brute_state_options_t;
 typedef struct brute_section_s brute_section_t;

@@ -1,11 +1,29 @@
+#if BRUTE_VEC_WIDTH == 1
+# define BRUTE_UVEC uint
+# define BRUTE_VEC int
+#elif BRUTE_VEC_WIDTH == 2
+# define BRUTE_UVEC uint2
+# define BRUTE_VEC int2
+#elif BRUTE_VEC_WIDTH == 4
+# define BRUTE_UVEC uint4
+# define BRUTE_VEC int4
+#elif BRUTE_VEC_WIDTH == 8
+# define BRUTE_UVEC uint8
+# define BRUTE_VEC int8
+#elif BRUTE_VEC_WIDTH == 16
+# define BRUTE_UVEC uint16
+# define BRUTE_VEC int16
+#endif
+
 struct brute_result_s {
   uint seed;
   int score;
 };
 
-static inline uint4 v8_jenkins(const uint4 input, const uint4 seed) {
-  uint4 hash;
-  uint4 p;
+static inline BRUTE_UVEC v8_jenkins(const BRUTE_UVEC input,
+                                    const BRUTE_UVEC seed) {
+  BRUTE_UVEC hash;
+  BRUTE_UVEC p;
 
   hash = seed;
   p = input;
@@ -29,17 +47,18 @@ __kernel void brute_wide_map(const uint seed_off,
                              __global const uint* dataset,
                              __global struct brute_result_s* results) {
   uint seed_start;
-  uint4 seed;
+  BRUTE_UVEC seed;
   int gid;
-  uint4 hashes[BRUTE_KEY_COUNT];
-  int4 score;
+  BRUTE_UVEC hashes[BRUTE_KEY_COUNT];
+  BRUTE_VEC score;
   struct brute_result_s best;
 
   gid = get_global_id(0);
 
-  seed_start = seed_off + gid * 4;
+  seed_start = seed_off + gid * BRUTE_VEC_WIDTH;
   seed = seed_start;
-  seed += (uint4) (0, 1, 2, 3);
+  for (uint i = 0; i < BRUTE_VEC_WIDTH; i++)
+    seed[i] += i;
 
   /* Compute hashes first */
   for (uint i = 0; i < BRUTE_KEY_COUNT; i++)
@@ -48,10 +67,10 @@ __kernel void brute_wide_map(const uint seed_off,
   /* Compute score */
   score = 0;
   for (uint i = BRUTE_KEY_COUNT; i < BRUTE_DATASET_SIZE; i += 2) {
-    uint4 left_hash;
-    uint4 right_hash;
-    int4 lpos;
-    int4 rpos;
+    BRUTE_UVEC left_hash;
+    BRUTE_UVEC right_hash;
+    BRUTE_VEC lpos;
+    BRUTE_VEC rpos;
 
     left_hash = v8_jenkins(dataset[i], seed);
     right_hash = v8_jenkins(dataset[i + 1], seed);
@@ -59,20 +78,20 @@ __kernel void brute_wide_map(const uint seed_off,
     lpos = 0;
     rpos = 0;
     for (uint j = 0; j < BRUTE_KEY_COUNT; j++) {
-      uint4 key_hash;
+      BRUTE_UVEC key_hash;
 
       key_hash = hashes[j];
-      lpos += select(int4(1), int4(0), left_hash < key_hash);
-      rpos += select(int4(1), int4(0), right_hash < key_hash);
+      lpos += select(BRUTE_VEC(1), BRUTE_VEC(0), left_hash < key_hash);
+      rpos += select(BRUTE_VEC(1), BRUTE_VEC(0), right_hash < key_hash);
     }
 
     /* Counter-intuitively left should be further in the list than right */
-    score += clamp(lpos - rpos, int4(0), int4(1));
+    score += clamp(lpos - rpos, BRUTE_VEC(0), BRUTE_VEC(1));
   }
 
   best.score = 0;
   best.seed = 0;
-  for (uint i = 0; i < 4; i++) {
+  for (uint i = 0; i < BRUTE_VEC_WIDTH; i++) {
     best.seed = select(best.seed, seed[i], score[i] > best.score);
     best.score = max(best.score, score[i]);
   }

@@ -148,8 +148,9 @@ int brute_state_init(brute_state_t* st,
     snprintf(options, sizeof(options),
              "-DBRUTE_KEY_COUNT=%d "
              "-DBRUTE_DATASET_SIZE=%d "
+             "-DBRUTE_VEC_WIDTH=%d "
              "-cl-strict-aliasing ",
-             st->key_count, st->dataset_size);
+             st->key_count, st->dataset_size, BRUTE_VEC_WIDTH);
 
     err = clBuildProgram(st->program, 1, &st->device,
                          options, NULL, NULL);
@@ -220,7 +221,7 @@ int brute_section_init(brute_state_t* st, brute_section_t* sect) {
   cl_int err;
   cl_kernel kernel;
 
-  sect->result_count = BRUTE_SECTION_SIZE / 4;
+  sect->result_count = BRUTE_SECTION_SIZE / BRUTE_VEC_WIDTH;
 
   sect->results = clCreateBuffer(
       st->context,
