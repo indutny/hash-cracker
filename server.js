@@ -3,7 +3,16 @@
 const http = require('http');
 
 http.createServer((req, res) => {
-  res.end();
+  let chunks = '';
+  req.on('data', chunk => chunks += chunk);
+  req.once('end', () => {
+    let body;
+    try {
+      body = JSON.parse(chunks);
+    } catch (e) {
+    }
+    res.end();
+  });
 }).listen(8000, () => {
   console.log('Listening');
 });
