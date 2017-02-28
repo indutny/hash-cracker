@@ -18,6 +18,8 @@
 # include <mach/mach_time.h>
 #endif  /* __APPLE__ */
 
+#define ASSERT(X) if (!(X)) abort()
+
 static int prepare_req(const char* probe, char* out, size_t out_len) {
   int written;
 
@@ -27,7 +29,7 @@ static int prepare_req(const char* probe, char* out, size_t out_len) {
                      "%s\r\n",
                      (int) strlen(probe),
                      probe);
-  assert(written <= (int) out_len);
+  ASSERT(written <= (int) out_len);
 
   return written;
 }
@@ -111,17 +113,17 @@ static void run(int fd) {
     start_ns = mach_absolute_time() * info.numer / info.denom;
 #elif defined(__linux__)
     err = clock_gettime(CLOCK_MONOTONIC, &start_ts);
-    assert(err == 0);
+    ASSERT(err == 0);
 #else
     err = gettimeofday(&start_tv, NULL);
-    assert(err == 0);
+    ASSERT(err == 0);
 #endif  /* __APPLE__ */
 
     err = send_req(fd, req_buf, req_len);
-    assert(err == 0);
+    ASSERT(err == 0);
 
     err = recv_res(fd);
-    assert(err == 0);
+    ASSERT(err == 0);
 
 #ifdef __APPLE__
     end_ns = mach_absolute_time() * info.numer / info.denom;
@@ -129,13 +131,13 @@ static void run(int fd) {
     delta = end_ns - start_ns;
 #elif defined(__linux__)
     err = clock_gettime(CLOCK_MONOTONIC, &end_ts);
-    assert(err == 0);
+    ASSERT(err == 0);
 
     delta = (int64_t) (end_ts.tv_sec - start_ts.tv_sec) * 1e9 +
             (end_ts.tv_nsec - start_ts.tv_nsec);
 #else
     err = gettimeofday(&end_tv, NULL);
-    assert(err == 0);
+    ASSERT(err == 0);
 
     delta = (int64_t) (end_tv.tv_sec - start_tv.tv_sec) * 1e6 +
             (end_tv.tv_usec - start_tv.tv_usec);
@@ -195,11 +197,11 @@ int main(int argc, char** argv) {
   addr.sin_port = htons(port);
 
   fd = socket(AF_INET, SOCK_STREAM, 0);
-  assert(fd != -1);
+  ASSERT(fd != -1);
   do
     err = connect(fd, (const struct sockaddr*) &addr, sizeof(addr));
   while (err == -1 && errno == EINTR);
-  assert(err == 0);
+  ASSERT(err == 0);
 
   run(fd);
 
