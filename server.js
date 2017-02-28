@@ -5,7 +5,7 @@ const zlib = require('zlib');
 
 http.createServer((req, res) => {
   let chunks = '';
-  req.on('data', chunk => chunks += chunk;
+  req.on('data', chunk => chunks += chunk);
   req.once('end', () => {
     let body;
     try {
