@@ -542,7 +542,7 @@ static int brute_parse_argv(int argc, char** argv,
     brute_print_help(argc, argv);
     fprintf(stderr,
             "`dataset` must have both keys and even number of probes\n");
-    free(options->dataset);
+    free((void*) options->dataset);
     return -1;
   }
 
