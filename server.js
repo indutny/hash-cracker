@@ -6,11 +6,13 @@ http.createServer((req, res) => {
   let chunks = '';
   req.on('data', chunk => chunks += chunk);
   req.once('end', () => {
-    let body;
-    try {
-      body = JSON.parse(chunks);
-    } catch (e) {
-      console.error(e);
+    if (req.method === 'POST') {
+      let body;
+      try {
+        body = JSON.parse(chunks);
+      } catch (e) {
+        console.error(e);
+      }
     }
     res.end();
   });

@@ -59,5 +59,12 @@
     "sources": [
       "src/client.c",
     ],
+  }, {
+    "target_name": "collide",
+    "type": "executable",
+
+    "sources": [
+      "src/collide.c",
+    ],
   }],
 }
