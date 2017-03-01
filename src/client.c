@@ -50,7 +50,7 @@ static int send_req(int fd, const char* req, int len) {
 }
 
 
-static int recv_res(int fd) {
+static int recv_res(int fd, int single_byte) {
   int err;
   char tmp[16 * 1024];
   int count;
@@ -58,11 +58,15 @@ static int recv_res(int fd) {
 
   count = 0;
   do {
-    err = read(fd, tmp, sizeof(tmp));
-    if (err > 0)
+    err = read(fd, tmp, single_byte ? 1 : sizeof(tmp));
+    if (err > 0) {
+      if (single_byte)
+        return 0;
+
       for (int i = 0; count < 4 && i < err; i++)
         if (tmp[i] != CRLF[count++])
           count = 0;
+    }
   } while (err == -1 && errno == EINTR);
 
   return count == 4 ? 0 : -1;
@@ -106,6 +110,10 @@ static void run(int fd) {
 
     req_len = prepare_req(buf, req_buf, req_buf_size);
 
+    /* Send all, but the last byte */
+    err = send_req(fd, req_buf, req_len - 1);
+    ASSERT(err == 0);
+
 #ifdef __APPLE__
     if (mach_timebase_info(&info) != KERN_SUCCESS)
       abort();
@@ -119,10 +127,12 @@ static void run(int fd) {
     ASSERT(err == 0);
 #endif  /* __APPLE__ */
 
-    err = send_req(fd, req_buf, req_len);
+    /* Send the last byte */
+    err = send_req(fd, req_buf + req_len - 1, 1);
     ASSERT(err == 0);
 
-    err = recv_res(fd);
+    /* Recv first byte */
+    err = recv_res(fd, 1);
     ASSERT(err == 0);
 
 #ifdef __APPLE__
@@ -142,6 +152,10 @@ static void run(int fd) {
     delta = (int64_t) (end_tv.tv_sec - start_tv.tv_sec) * 1e6 +
             (end_tv.tv_usec - start_tv.tv_usec);
 #endif  /* __APPLE__ */
+
+    /* Recv rest byte */
+    err = recv_res(fd, 0);
+    ASSERT(err == 0);
 
     fprintf(stdout, "%f\n", delta);
     fflush(stdout);
